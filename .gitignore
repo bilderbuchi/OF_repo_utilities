@@ -1,0 +1,15 @@
+*~
+*.json
+*.pickle
+*.png
+*.pdf
+
+*.pyc
+
+# Pydev project
+.project
+.pydevproject
+
+github_token.txt
+/misc
+
