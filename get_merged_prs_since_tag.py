@@ -6,23 +6,29 @@ import github_tools
 
 Repo = github_tools.get_repo()
 
-# TODO: implement getting date from repo tag./
+# TODO: implement getting date from repo tag.
 tagname = '0.8.1'
 tags = Repo.get_tags()
 for t in tags:
     if t.name == tagname:
         startdate = t.commit.commit.committer.date
-        print('Tag date: ' + str(startdate))
+        print('Selected tag ' + tagname + ', date: ' + str(startdate))
 
+print('Fetching data...\n\n')
 pulls = Repo.get_pulls('closed')
-user_length = 0
+results = []
 for p in pulls:
     if (p.closed_at > startdate) and p.merged:
-        user_length = max(user_length, len(p.user.login))
-format_string = '{:<' + str(user_length) + '}'
+        results.append({'login': p.user.login,
+                        'number': p.number,
+                        'url': p.html_url,
+                        'title': p.title})
 
-for p in pulls:
-    if (p.closed_at > startdate) and p.merged:
-        print("* [Nr " + str(p.number) + "]( "
-              + str(p.html_url) + " ) by " + format_string.format(p.user.login)
-              + ': ' + str(p.title))
+user_maxlength = max([len(entry['login']) for entry in results])
+format_string = '{:<' + str(user_maxlength) + '}'
+
+for r in results:
+    print("* [Nr " + str(r['number']) + "]( "
+          + str(r['url']) + " ) by "
+          + format_string.format(r['login'])
+          + ': ' + str(r['title']))
