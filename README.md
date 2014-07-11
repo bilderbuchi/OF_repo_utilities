@@ -9,3 +9,6 @@ Only the public access scope is needed, except for `get_org_members.py`, which a
 
 ## Required packages
 * [PyGithub](https://github.com/jacquev6/PyGithub)
+
+## License
+MIT License, see LICENSE.md
