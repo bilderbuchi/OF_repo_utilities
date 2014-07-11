@@ -3,6 +3,7 @@
 """Print the percentage of unmergeable PRs and some associated stats."""
 
 import github_tools
+from time import sleep
 
 Repo = github_tools.get_repo()
 merge_true = 0
@@ -12,6 +13,11 @@ nr_prs = 0
 pulls = Repo.get_pulls('open')
 for p in pulls:
     nr_prs += 1
+    # TODO: Workaround for https://github.com/jacquev6/PyGithub/issues/256
+    while p.mergeable is None:
+        print('Uncached mergeable state enountered for ' + str(p.number))
+        sleep(1)
+        p.update()
     print("nr " + str(p.number) + ", mergeable:" + str(p.mergeable))
     if p.mergeable:
         merge_true += 1
