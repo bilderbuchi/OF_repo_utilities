@@ -9,6 +9,7 @@ Repo = github_tools.get_repo()
 merge_true = 0
 merge_false = 0
 nr_prs = 0
+unmergeable_urls = []
 
 pulls = Repo.get_pulls('open')
 for p in pulls:
@@ -23,6 +24,7 @@ for p in pulls:
         merge_true += 1
     else:
         merge_false += 1
+        unmergeable_urls.append(p.html_url)
 
 # sanity check
 assert(nr_prs == (merge_true + merge_false))
@@ -32,3 +34,5 @@ print('Open PRs: ' + str(nr_prs) +
       '\nUnmergeable: ' + str(merge_false) +
       '\nPercentage unmergeable: ' +
       '%.2f' % (100.0 * merge_false / nr_prs))
+
+github_tools.open_in_browser(unmergeable_urls)
