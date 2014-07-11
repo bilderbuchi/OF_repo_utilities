@@ -55,3 +55,33 @@ def open_in_browser(list_of_urls):
             for u in list_of_urls:
                 webbrowser.open(u)
             print('Done')
+
+
+def validate_tagname(repo, tagname):
+    """Try to find a given tagname in a repo's tags.
+
+    If no tagname is given, find the youngest tag.
+    Return a dict containing tag name and tag date
+    """
+
+    print('Fetching tags...')
+    tags = repo.get_tags()
+    tag_list = []
+    for t in tags:
+        tag_list.append({'name': t.name,
+                         'date': t.commit.commit.committer.date})
+
+    if not tagname:
+        # no tagname was given, choose the youngest tag
+        tag = max(tag_list, key=lambda x: x['date'])
+    else:
+        # find date for given tagname
+        for t in tag_list:
+            if tagname == t['name']:
+                tag = t
+                break
+        else:
+            # no appropriate tag was found
+            sys.exit('Tag name ' + tagname + ' not found, aborting!')
+    print('Selected tag ' + tag['name'] + ', date: ' + str(tag['date']))
+    return tag
