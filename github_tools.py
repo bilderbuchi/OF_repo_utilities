@@ -14,11 +14,12 @@ from github import Github
 if sys.version_info < (3, 0):
     sys.exit('github_tools requires Python 3.0 or greater')
 # TODO: See if a py2/py3 compatible codebase can reasonably be achieved.
+# TODO: Add a convenience function returning rate limit info
+# TODO: Check proper PY3 UTF-8 string handling
 
 
-def get_repo(user='openframeworks', repo='openFrameworks',
-             token='github_token.txt', timeout=20):
-    """Return Github authenticated repo, ready for use."""
+def get_github_instance(token='github_token.txt', timeout=20):
+    """Return a token-authenticated Github instance."""
 
     currentdir = os.path.dirname(os.path.abspath(
                                  inspect.getfile(inspect.currentframe()))
@@ -32,7 +33,14 @@ def get_repo(user='openframeworks', repo='openFrameworks',
         sys.exit('Token file ' + tokenpath + ' not found.\n' +
                  'Please create it, containing your Github access token.')
 
-    G = Github(my_token, timeout=timeout)
+    return Github(my_token, timeout=timeout)
+
+
+def get_repo(user='openframeworks', repo='openFrameworks',
+             token='github_token.txt', timeout=20):
+    """Return Github authenticated repo, ready for use."""
+
+    G = get_github_instance(token=token, timeout=timeout)
     return G.get_user(user).get_repo(repo)
 
 
