@@ -5,6 +5,8 @@
 The tag name can be given as argument. If none was given, choose latest tag.
 """
 
+# TODO: Why is this script so bandwidth-intensive?
+
 import github_tools
 import sys
 
@@ -18,7 +20,7 @@ Repo = github_tools.get_repo()
 tag = github_tools.validate_tagname(Repo, tagname)
 
 print('Fetching data...\n\n')
-pulls = Repo.get_pulls('closed')
+pulls = Repo.get_pulls(state='closed')
 results = []
 for p in pulls:
     if (p.closed_at > tag['date']) and p.merged:
