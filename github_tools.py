@@ -9,7 +9,9 @@ import os
 import sys
 import inspect
 import webbrowser
+from subprocess import check_call, CalledProcessError, DEVNULL
 from github import Github
+import psutil
 
 if sys.version_info < (3, 0):
     sys.exit('github_tools requires Python 3.0 or greater')
@@ -85,3 +87,44 @@ def validate_tagname(repo, tagname):
             sys.exit('Tag name ' + tagname + ' not found, aborting!')
     print('Selected tag ' + tag['name'] + ', date: ' + str(tag['date']))
     return tag
+
+
+def local_repo_location(location_file='local_repo_location.txt'):
+    """Return the path to a local Git repo, if defined in a location file."""
+
+    currentdir = os.path.dirname(os.path.abspath(
+                                 inspect.getfile(inspect.currentframe()))
+                                 )
+    location_file_path = os.path.join(currentdir, location_file)
+
+    try:
+        with open(location_file_path) as location_file:
+            repo_location = os.path.abspath(location_file.readline().rstrip())
+            # Confirm valid Git repo existence
+            check_call(['git', 'rev-parse', '--is-inside-work-tree'],
+                       stdout=DEVNULL,
+                       cwd=repo_location)
+            print('Found Git repo at ' + str(repo_location))
+            return repo_location
+    except FileNotFoundError:
+        print('Location file ' + location_file_path + ' not found.')
+        return None
+    except CalledProcessError:
+        sys.exit(str(repo_location) + ' is not a valid Git repository!')
+
+
+def log_traffic():
+    """Log consumed network bandwidth since last call to console."""
+
+    my_io = psutil.net_io_counters
+    try:
+        log_traffic.store['kB_recv'].append(my_io().bytes_recv/1000)
+        log_traffic.store['kB_sent'].append(my_io().bytes_sent/1000)
+        print('Traffic: ' +
+              '{0:.2f}kB down / '.format(log_traffic.store['kB_recv'][-1] -
+                                         log_traffic.store['kB_recv'][-2]) +
+              '{0:.2f}kB up'.format(log_traffic.store['kB_sent'][-1] -
+                                    log_traffic.store['kB_sent'][-2]))
+    except AttributeError:  # store not initialized yet
+        log_traffic.store = {'kB_recv': [my_io().bytes_recv/1000],
+                             'kB_sent': [my_io().bytes_sent/1000]}
