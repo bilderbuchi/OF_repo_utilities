@@ -3,7 +3,6 @@
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import numpy as np
 import datetime
 import dateutil
 import pickle
@@ -11,19 +10,12 @@ import github_tools
 import os
 import sys
 from subprocess import check_output
+from operator import itemgetter
 
 # TODO:
-# confirm that local and API-gotten commits' dates are identical
-#
 # possibly use a database instead of pickling: https://github.com/pudo/dataset
-# issue open duration should not be in recarray
 # link plots
-# (opendate, 1), (closedate, -1); cat; sort_by_date; cumsum(col2); plot
-# same for PR
-# use PyGithub's new "since" for getting fresh commits only
-#
 # Calculate average, stddev, max of time-to-fix, open time.
-#
 # other plots:
 # % issues without label
 # issue longest silent
@@ -32,15 +24,8 @@ from subprocess import check_output
 # % without any comment
 # most bugs squashed
 
-# Github/PyGithub objects are Capitalized!
-
-# import times # module for saner time management.
-# See http://nvie.com/posts/introducing-times/
-
 ###############################################################################
 # CONFIGURATION
-fetch = True  # fetch data from github or load from json-serialized file
-# fetch=False
 target_branch = 'master'
 
 mpl.rc('axes', grid=True, axisbelow=True)
@@ -73,12 +58,12 @@ def naive_dt(datetime):
     return datetime.astimezone(dateutil.tz.tzutc()).replace(tzinfo=None)
 
 
-def annot_tags_events(axis, tags_recarray, events, event_titles):
+def annot_tags_events(axis, tags_list, events, event_titles):
     """Add tag and event annotations to a given axis"""
 
-    for t in range(tags_recarray.shape[0]):
-        axis.axvline(tags_recarray.date[t], color='y', alpha=0.5)
-        plt.annotate(tags_recarray.name[t], xy=(tags_recarray.date[t], 0.90),
+    for t in tags_list:
+        axis.axvline(t['date'], color='y', alpha=0.5)
+        plt.annotate(t['name'], xy=(t['date'], 0.90),
                      xycoords=("data", "axes fraction"), ha='right', va='top')
 
     for e in range(len(event_titles)):
@@ -92,12 +77,12 @@ print('Fetching fresh data from Github')
 Repo = github_tools.get_repo()
 
 ###############################################################################
-print('Getting issues')
-print('\nGithub shows ' + str(Repo.open_issues) + ' open issues.')
+print('\nGetting issues')
+print('Github shows ' + str(Repo.open_issues) + ' open issues.')
 github_tools.log_traffic()  # initial call to establish baseline
 issues_path = os.path.join(pickle_dir, 'Issues.pickle')
 if os.path.isfile(issues_path):
-    print('Loading issues from disk. Updating')
+    print('Loading issues from disk. Updating...')
     with open(issues_path, 'rb') as fp:
         Issues = pickle.load(fp)
     last_update = max({v.updated_at for v in Issues.values()})
@@ -119,49 +104,37 @@ else:
         Issues[i.number] = i
     print('Issues received')
 
-print('Creating issues recarray')
-#    unicode strings as objects, otherwise string length is 0!
-issues_dtype = [('number', int),
-                ('state', object),
-                ('created_at', object),
-                ('closed_at', object),
-                ('duration_open', object)]
-#    create new, empty recarray:
-issues_ra = np.recarray((0,), dtype=issues_dtype)
+print('Creating processed issue list')
+issue_list = []
 for i in Issues.values():
-    issues_ra.resize(issues_ra.shape[0]+1)
     if i.closed_at:
-        closedate = i.closed_at
+        _closed = i.closed_at
     else:
-        closedate = None
-    entry = (i.number,
-             i.state,
-             i.created_at,
-             i.closed_at,
-             (closedate or datetime.datetime.now()) - i.created_at)
-    issues_ra[-1] = entry
-issues_ra.sort(order='number')
-print('%s issues on record' % issues_ra.shape[0])
+        _closed = None
+    _duration = (i.closed_at or datetime.datetime.now()) - i.created_at
+    issue_list.append({'number': i.number,
+                       'state': i.state,
+                       'created_at': i.created_at,
+                       'closed_at': _closed,
+                       'duration_open': _duration})
+issue_list.sort(key=itemgetter('number'))
+print('%s issues on record' % len(issue_list))
+
 github_tools.log_traffic()
 
 ###############################################################################
 print('\nGetting tags')
 Tags = Repo.get_tags()
-print('Creating tags recarray')
-tags_dtype = [('date', object), ('name', object)]
-tags_ra = np.recarray((0,), dtype=tags_dtype)
+print('Creating tags list')
+tags_list = []
 for t in Tags:
-    tags_ra.resize(tags_ra.shape[0]+1)
-    tags_ra[-1] = (t.commit.commit.committer.date, t.name)
-print('%s tags available' % tags_ra.shape[0])
+    tags_list.append({'date': t.commit.commit.committer.date,
+                      'name': t.name})
 github_tools.log_traffic()
 
 ###############################################################################
 print('\nGetting commits')
-commits_dtype = [('sha', object),
-                 ('commit_date', object),
-                 ('author_date', object)]
-commits_ra = np.recarray((0,), dtype=commits_dtype)
+commits_list = []
 
 repopath = github_tools.local_repo_location()
 if repopath:
@@ -190,43 +163,42 @@ if repopath:
     for l in _outlist:
         # split into sha, committer date, author date, parents
         _temp = l.split(sep='  ')
-        commits_ra.resize(commits_ra.shape[0]+1)
-        # TODO: Add parents to recarray
-        commits_ra[-1] = (_temp[0],
-                          naive_dt(dateutil.parser.parse(_temp[1])),
-                          naive_dt(dateutil.parser.parse(_temp[2])))
+        _du_parse = dateutil.parser.parse
+        # TODO: add parents to data structure
+        commits_list.append({'sha': _temp[0],
+                             'committer_date': naive_dt(_du_parse(_temp[1])),
+                             'author_date': naive_dt(_du_parse(_temp[2]))})
+    print('%s commits on record' % len(commits_list))
     print('Done')
 else:
     print('No local repository specified. Getting commits from Github')
     Commits = Repo.get_commits()
     for c in Commits:
-        commits_ra.resize(commits_ra.shape[0]+1)
-        commits_ra[-1] = (c.sha,
-                          c.commit.committer.date,
-                          c.commit.author.date)
-    print('%s commits received' % commits_ra.shape[0])
+        commits_list.append({'sha': c.sha,
+                             'committer_date': c.commit.committer.date,
+                             'author_date': c.commit.author.date})
+    print('%s commits received' % len(commits_list))
     github_tools.log_traffic()
 
 ###############################################################################
 print('\nProcessing objects')
 
 # one row of dates, one row of indices, +1 for opening, -1 for closing
-open_issue_count = np.vstack((issues_ra.created_at,
-                              np.ones((len(issues_ra.created_at)))
-                              ))
-issue_close_dates = issues_ra.closed_at[issues_ra.state == 'closed']
-_closed_issues = np.vstack((issue_close_dates,
-                            -1*np.ones((len(issue_close_dates)))
-                            ))
-open_issue_count = np.hstack((open_issue_count, _closed_issues)).T
+open_issue_count = []
+for i in issue_list:
+    open_issue_count.append({'date': i['created_at'],
+                             'status_change': 1})
+    if i['closed_at']:
+        open_issue_count.append({'date': i['closed_at'],
+                                 'status_change': -1})
+open_issue_count.sort(key=itemgetter('date'))
+_sum = 0
+for i in open_issue_count:
+    _sum += i['status_change']
+    i['open_issues'] = _sum
 
-open_issue_count = open_issue_count[open_issue_count[:, 0].argsort()]
-open_issue_count = np.column_stack((open_issue_count,
-                                    np.cumsum(open_issue_count[:, 1], axis=0)))
-# alternatively, use np.newaxis to get a proper 2D array
-# print str(np.shape(open_issue_count))
-
-xbegin = min([min(commits_ra.author_date), min(issues_ra.created_at)])
+xbegin = min([min([x['author_date'] for x in commits_list]),
+              min([x['date'] for x in open_issue_count])])
 xend = datetime.datetime.utcnow()
 print("Data range: %s days" % str((xend-xbegin).days))
 bin_rrule = dateutil.rrule.rrule(dateutil.rrule.WEEKLY,
@@ -242,16 +214,19 @@ with open(issues_path, 'wb') as fp:
     pickle.dump(Issues, fp)
 
 ###############################################################################
-# Plot figure
+print('Plotting figure')
 fig = plt.figure(figsize=(380/25.4, 200/25.4))
 ax = fig.add_subplot(211)
 plt.title('OF issue tracker statistics - created ' + str(xend.date()))
 
-annot_tags_events(ax, tags_ra, OFEvents, OFEventTitles)
-ax.plot(open_issue_count[:, 0], open_issue_count[:, 2],
+annot_tags_events(ax, tags_list, OFEvents, OFEventTitles)
+ax.plot([x['date'] for x in open_issue_count],
+        [x['open_issues'] for x in open_issue_count],
         label='open issues', color='k', alpha=0.8)
-ax.hist([mpl.dates.date2num(issues_ra.created_at),
-         mpl.dates.date2num(issues_ra.closed_at[issues_ra.state == 'closed'])],
+_closed_issue_dates = [x['closed_at'] for x in issue_list
+                       if x['state'] == 'closed']
+ax.hist([mpl.dates.date2num([x['created_at'] for x in issue_list]),
+         mpl.dates.date2num(_closed_issue_dates)],
         histtype='barstacked',
         bins=bin_edges,
         label=['created issues', 'closed issues'],
@@ -269,8 +244,8 @@ ax.tick_params(axis='x', direction='out')
 # -----------------------------------------------------------------------------
 ax2 = fig.add_subplot(212, sharex=ax)
 plt.title('OF commit statistics')
-annot_tags_events(ax2, tags_ra, OFEvents, OFEventTitles)
-ax2.hist(mpl.dates.date2num(commits_ra.author_date),
+annot_tags_events(ax2, tags_list, OFEvents, OFEventTitles)
+ax2.hist(mpl.dates.date2num([x['author_date'] for x in commits_list]),
          bins=bin_edges,
          label=(target_branch + ' commits authored'),
          color='blue',
