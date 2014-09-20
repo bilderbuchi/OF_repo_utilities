@@ -24,8 +24,7 @@ def get_github_instance(token='github_token.txt', timeout=20):
     """Return a token-authenticated Github instance."""
 
     currentdir = os.path.dirname(os.path.abspath(
-                                 inspect.getfile(inspect.currentframe()))
-                                 )
+        inspect.getfile(inspect.currentframe())))
     tokenpath = os.path.join(currentdir, token)
 
     try:
@@ -42,8 +41,8 @@ def get_repo(user='openframeworks', repo='openFrameworks',
              token='github_token.txt', timeout=20):
     """Return Github authenticated repo, ready for use."""
 
-    G = get_github_instance(token=token, timeout=timeout)
-    return G.get_user(user).get_repo(repo)
+    gh_instance = get_github_instance(token=token, timeout=timeout)
+    return gh_instance.get_user(user).get_repo(repo)
 
 
 def open_in_browser(list_of_urls):
@@ -54,8 +53,8 @@ def open_in_browser(list_of_urls):
                        'other key to quit:\n')
         if answer.lower() == 'y':
             print('Opening...')
-            for u in list_of_urls:
-                webbrowser.open(u)
+            for url in list_of_urls:
+                webbrowser.open(url)
             print('Done')
 
 
@@ -93,13 +92,12 @@ def local_repo_location(location_file='local_repo_location.txt'):
     """Return the path to a local Git repo, if defined in a location file."""
 
     currentdir = os.path.dirname(os.path.abspath(
-                                 inspect.getfile(inspect.currentframe()))
-                                 )
+        inspect.getfile(inspect.currentframe())))
     location_file_path = os.path.join(currentdir, location_file)
 
     try:
-        with open(location_file_path) as location_file:
-            repo_location = os.path.abspath(location_file.readline().rstrip())
+        with open(location_file_path) as l_file:
+            repo_location = os.path.abspath(l_file.readline().rstrip())
             # Confirm valid Git repo existence
             check_call(['git', 'rev-parse', '--is-inside-work-tree'],
                        stdout=DEVNULL,
