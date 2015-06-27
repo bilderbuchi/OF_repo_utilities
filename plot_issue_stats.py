@@ -3,6 +3,7 @@
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import datetime
 import dateutil
 import pickle
@@ -41,12 +42,14 @@ def annot_tags_events(axis, tag_list, events, event_titles):
 
     for _t in tag_list:
         axis.axvline(_t['date'], color='y', alpha=0.5)
-        plt.annotate(_t['name'], xy=(_t['date'], 0.90),
+        # coordinates need to be converted to mpl internal format, see
+        # http://stackoverflow.com/a/11068038/599884
+        axis.annotate(_t['name'], xy=(mdates.date2num(_t['date']), 0.90),
                      xycoords=("data", "axes fraction"), ha='right', va='top')
 
     for e in range(len(event_titles)):
         axis.axvspan(events[e][0], events[e][1], color='y', alpha=0.5)
-        plt.annotate(event_titles[e], xy=(events[e][0], 0.97),
+        axis.annotate(event_titles[e], xy=(mdates.date2num(events[e][0]), 0.97),
                      xycoords=("data", "axes fraction"), ha='right', va='top')
 
 
@@ -80,7 +83,7 @@ def main():
 
     ###########################################################################
     print('\nGetting issues')
-    print('Github shows ' + str(Repo.open_issues) + ' open issues.')
+    print('Github shows ' + str(Repo.open_issues) + ' open issues and PRs.')
     github_tools.log_traffic()  # initial call to establish baseline
     issues_path = os.path.join(pickle_dir, 'Issues.pickle')
     if os.path.isfile(issues_path):

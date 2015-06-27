@@ -15,6 +15,7 @@ This way, commit data is aquired locally instead of with the Github API, saving 
 * [PyGithub](https://github.com/jacquev6/PyGithub)
 * [Matplotlib](http://matplotlib.org/) (for `plot_issue_stats`)
 * [dateutil](https://pypi.python.org/pypi/python-dateutil) (for `plot_issue_stats`)
+* [psutil](https://pypi.python.org/pypi/psutil)
 These can typically be installed with `pip3 install --user <packagename>`.
 
 ## License
